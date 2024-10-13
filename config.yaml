@@ -1,0 +1,43 @@
+# All paths are relative to the root of the project.
+################################################################################
+# Name classification
+
+NAMES_INPUT_PATH:  data/processed/names.txt
+NAMES_OUTPUT_PATH: data/processed/names_indices.txt
+
+# Note that we use the country names in 2 ways: 1 for classification
+# and 1 for encoder-decoder reconstruction.
+COUNTRIES_INPUT_PATH: data/processed/countries.txt
+COUNTRIES_WORD_OUTPUT_PATH: data/processed/countries_word_indices.txt
+COUNTRIES_LETTER_OUTPUT_PATH: data/processed/countries_letter_indices.txt
+
+################################################################################
+# Translation with encoder-decoder
+
+
+ENGLISH_INPUT_PATH: data/processed/english.txt
+ENGLISH_OUTPUT_PATH: data/processed/english_indices.txt
+
+FRENCH_INPUT_PATH: data/processed/french.txt
+FRENCH_OUTPUT_PATH:  data/processed/french_indices.txt
+
+################################################################################
+# Models
+
+# Language models
+NAMES_LANGUAGE_MODEL_PATH: models/names_model.pkl
+COUNTRIES_WORD_LANGUAGE_MODEL_PATH: models/countries_word_model.pkl
+COUNTRIES_LETTER_LANGUAGE_MODEL_PATH: models/countries_letter_model.pkl
+
+ENGLISH_LANGUAGE_MODEL_PATH: models/english_model.pkl
+FRENCH_LANGUAGE_MODEL_PATH: models/french_model.pkl
+
+# Torch models
+NAME_CLASSIFICATION_TORCH_MODEL_PATH: models/name_classification_torch_model.pth
+NAME_ENCODER_DECODER_TORCH_MODEL_PATH: models/name_encoder_decoder_torch_model.pth
+ENGLISH_TO_FRENCH_TRANSLATION_MODEL_PATH: models/english_to_french_translation_model.pth
+
+################################################################################
+# Torch
+
+TENSORBOARD_LOGS_PATH: logs/

@@ -1,0 +1,34 @@
+[project]
+name = "encoder-decoders"
+version = "1.0.0"
+description = "Playing around with encoder-decoders."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=6.29.5",
+    "lightning>=2.4.0",
+    "matplotlib>=3.9.2",
+    "pandas>=2.2.3",
+    "pip>=24.2",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.5.2",
+    "scipy>=1.14.1",
+    "seaborn>=0.13.2",
+    "spacy>=3.8.2",
+    "tensorboard>=2.18.0",
+    "torch>=2.4.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+    "ruff>=0.6.8",
+]
+
+
+[tool.ruff]
+line-length=80
+
+
+[tool.ruff.format]
+skip-magic-trailing-comma = false
