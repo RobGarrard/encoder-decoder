@@ -9,5 +9,11 @@ pull-data:
 	@uv run src/common/preprocess.py
 	
 
-run-tensorboard:
-	@uv run tensorboard --logdir=logs/
+run-tensorboard-name-classification:
+	@uv run tensorboard --logdir=logs/name-classification/
+
+run-tensorboard-name-encoder-decoder:
+	@uv run tensorboard --logdir=logs/name-encoder-decoder/
+
+run-tensorboard-english-french-translation:
+	@uv run tensorboard --logdir=logs/english-to-french-translation/
