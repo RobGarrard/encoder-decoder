@@ -208,7 +208,6 @@ class EncoderDecoder(L.LightningModule):
         self,
         source_language: Language,
         target_language: Language,
-        detokenizer: Callable,
         input_size: int,
         embedding_size: int,
         hidden_size: int,
@@ -223,7 +222,6 @@ class EncoderDecoder(L.LightningModule):
         # Parameters
         self.source_language = source_language
         self.target_language = target_language
-        self.detokenizer = detokenizer
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.embedding_size = embedding_size
@@ -238,7 +236,6 @@ class EncoderDecoder(L.LightningModule):
         assert self.scheduler in ["onecycle", "reduceonplateau"]
         assert isinstance(self.source_language, Language)
         assert isinstance(self.target_language, Language)
-        assert callable(self.detokenizer)
 
         # Embedding
         self.input_embedding = torch.nn.Embedding(
@@ -514,6 +511,6 @@ class EncoderDecoder(L.LightningModule):
             output = output[:-1]
 
         # Detokenize the output using provided function
-        output = self.detokenizer(output)
+        output = self.target_language.detokenizer(output)
 
         return output

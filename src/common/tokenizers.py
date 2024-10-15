@@ -6,6 +6,10 @@
 # If you want to use a custom tokenizer in your language model, add it here.
 # For English and French, we use the spaCy tokenizer.
 
+# Note that we have both tokenizers and detokenizers in here. The tokenizers
+# are used to convert a string into a list of tokens, while the detokenizers
+# are used to convert a list of tokens back into a string.
+
 # Libraries
 import os
 import spacy
@@ -88,6 +92,57 @@ def keep_whole_sentence():
     """
     return lambda s: [s]
 
+
+def join_no_space():
+    """
+    Returns a detokenizer function that joins a list of tokens into a single
+    string without any spaces.
+
+    This function returns a lambda function that takes a list of tokens as
+    input and returns a single string by joining the tokens without any spaces.
+
+    Returns
+    -------
+    Callable[[List[str]], str]
+        A detokenizer function that joins a list of tokens into a single string
+        without any spaces.
+
+    Examples
+    --------
+    >>> detokenizer = join_no_space()
+    >>> detokenizer(["hello", "world"])
+    'helloworld'
+
+    >>> detokenizer(["h", "e", "l", "l", "o"])
+    'hello'
+    """
+    return lambda s: "".join(s)
+
+def join_with_space():
+    """
+    Returns a detokenizer function that joins a list of tokens into a single
+    string with spaces between each token.
+
+    This function returns a lambda function that takes a list of tokens as
+    input and returns a single string by joining the tokens with spaces between
+    each token.
+
+    Returns
+    -------
+    Callable[[List[str]], str]
+        A detokenizer function that joins a list of tokens into a single string
+        with spaces between each token.
+
+    Examples
+    --------
+    >>> detokenizer = join_with_space()
+    >>> detokenizer(["hello", "world"])
+    'hello world'
+
+    >>> detokenizer(["h", "e", "l", "l", "o"])
+    'h e l l o'
+    """
+    return lambda s: " ".join(s)
 
 ################################################################################
 # SpaCy tokenizers
