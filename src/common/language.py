@@ -43,16 +43,19 @@ class Language:
         self,
         name: str | None = None,
         tokenizer_name: str = None,
+        detokenizer_name: str = None,
         add_special_tokens: bool = True,
     ) -> None:
         logger.info(f"Creating a language object for {name}")
         self.name = name
         self.tokenizer_name = tokenizer_name
+        self.detokenizer_name = detokenizer_name
         self.add_special_tokens = add_special_tokens
 
         # Tokenizer must be a string corresponding to a function
         # in tokenizers.py
-        self.tokenizer = self.__get_tokenizer()
+        self.tokenizer = self.__get_tokenizer(self.tokenizer_name)
+        self.detokenizer = self.__get_tokenizer(self.detokenizer_name)
 
         # vocabulary will be a dictionary with the token as the key and the
         # count as the value
@@ -60,18 +63,18 @@ class Language:
 
         return None
 
-    def __get_tokenizer(self) -> Callable:
+    def __get_tokenizer(self, tokenizer_name) -> Callable:
         """
         Assign a tokenizer to the language object
         """
-        tokenizer_name = self.tokenizer_name.lower()
+        tokenizer_name = tokenizer_name.lower()
 
         try:
             # Dynamically get the tokenizer function from the tokenizers module
             tokenizer_function = getattr(tokenizers, tokenizer_name)
             return tokenizer_function()
         except AttributeError:
-            raise ValueError(f"No tokenizer found for '{self.tokenizer_name}'")
+            raise ValueError(f"No tokenizer found for '{tokenizer_name}'")
 
     def __repr__(self) -> str:
         return f"Language({self.name})"
@@ -168,6 +171,7 @@ class Language:
         Save the following attributes to a pickle file:
             - self.name
             - self.tokenizer
+            - self.detokenizer
             - self.add_special_tokens
             - self.vocabulary
         """
@@ -184,6 +188,7 @@ class Language:
                 {
                     "name": self.name,
                     "tokenizer_name": self.tokenizer_name,
+                    "detokenizer_name": self.detokenizer_name,
                     "add_special_tokens": self.add_special_tokens,
                     "vocabulary": self.vocabulary,
                 },
@@ -243,6 +248,7 @@ def load_language(path: str) -> Language:
     language = Language(
         name=obj["name"],
         tokenizer_name=obj["tokenizer_name"],
+        detokenizer_name=obj["detokenizer_name"],
         add_special_tokens=obj["add_special_tokens"],
     )
     language.vocabulary = obj["vocabulary"]

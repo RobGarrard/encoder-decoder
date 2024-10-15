@@ -93,6 +93,8 @@ Once we have a trained model run inference and produced an output sequence in th
 
 The language utility class has this functionality. I've built a custom one here, but the spaCy python library seems to have all of this functionality too, I just don't know how to use it.
 
+For the English and French data sets, we use the spaCy tokenizer for each. For detokenizing these languages, I just use `" ".join(tokens)`, which just adds a space between them. This is not ideal since, for example, you might get a French output like: ["colle", "-le", "à", "l'", "homme"], which we detokenize to "colle -le à l' homme" rather than "colle-le à l'homme". But that's a later problem.
+
 #### Use your own data
 
 If you have your own data to use, all you need to do is curate it into the same format: a single file with one line per 'sentence' (string to be encoded) (one file each for source and target languages).

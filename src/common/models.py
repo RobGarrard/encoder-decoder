@@ -40,7 +40,13 @@ class RNNClassifier(L.LightningModule):
         num_layers: int = 1,
         dropout: float = 0.0,
     ):
+
         super().__init__()
+
+        # Turn off automatic optimization. We'll handle this ourselves.
+        # Seems to not play nice with one-cycle learning rate scheduler.
+        self.automatic_optimization = False
+
 
         # Parameters
         self.input_size = input_size
@@ -147,6 +153,14 @@ class RNNClassifier(L.LightningModule):
         return loss, accuracy
 
     def training_step(self, batch, batch_idx):
+        
+        # Get optimizer and scheduler
+        optimizer = self.optimizers()
+        scheduler = self.lr_schedulers()
+
+        # Zero the gradients
+        optimizer.zero_grad()
+
         loss, accuracy = self._model_step(batch, batch_idx)
 
         # Metrics to log during training.
@@ -157,7 +171,14 @@ class RNNClassifier(L.LightningModule):
             }
         )
 
-        return loss
+        # Backward pass
+        loss.backward()
+
+        # Step the optimizer
+        optimizer.step()
+        scheduler.step()
+
+        return None
 
     def validation_step(self, batch, batch_idx):
         """
@@ -197,7 +218,10 @@ class RNNClassifier(L.LightningModule):
             epochs=self.epochs,
         )
 
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+        }
 
 
 ################################################################################
@@ -215,7 +239,6 @@ class EncoderDecoder(L.LightningModule):
         epochs: int,
         data_length: int,
         max_output_length: int = 20,
-        scheduler: str = "onecycle",
     ):
         super().__init__()
 
@@ -229,11 +252,9 @@ class EncoderDecoder(L.LightningModule):
         self.epochs = epochs
         self.data_length = data_length
         self.max_output_length = max_output_length
-        self.scheduler = scheduler
 
         self.criterion = torch.nn.NLLLoss()
 
-        assert self.scheduler in ["onecycle", "reduceonplateau"]
         assert isinstance(self.source_language, Language)
         assert isinstance(self.target_language, Language)
 
@@ -391,11 +412,23 @@ class EncoderDecoder(L.LightningModule):
         return loss
 
     def training_step(self, batch, batch_idx):
+        # Get optimizer and scheduler
+        optimizer = self.optimizers()
+        scheduler = self.lr_schedulers()
+
+        # Zero the gradients
+        optimizer.zero_grad()
+
         loss = self._model_step(batch)
 
         self.log("train_loss", loss)
 
-        return loss
+        loss.backward()
+
+        optimizer.step()
+        scheduler.step()
+
+        return None
 
     def validation_step(self, batch, batch_idx):
         loss = self._model_step(batch)
@@ -405,39 +438,23 @@ class EncoderDecoder(L.LightningModule):
         return None
 
     def configure_optimizers(self):
+        """
+        We'll use the Adam optimizer with a one-cycle learning rate scheduler.
+        """
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=0.01,
+            steps_per_epoch=self.data_length,
+            epochs=self.epochs,
+        )
 
-        if self.scheduler == "onecycle":
-            # One cycle learning rate scheduler
-            scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                optimizer,
-                max_lr=0.01,
-                steps_per_epoch=self.data_length,
-                epochs=self.epochs,
-            )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": scheduler,
+        }
 
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": scheduler,
-            }
-
-        if self.scheduler == "reduceonplateau":
-            # Reduce on plateau
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer,
-                mode="min",
-                factor=0.5,
-                patience=3,
-                verbose=True,
-            )
-
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": scheduler,
-                "monitor": "validation_loss",
-            }
-
-        return None
+    
 
     def inference(self, name: str):
         """
