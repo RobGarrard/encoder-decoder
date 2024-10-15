@@ -20,6 +20,7 @@ from typing import Callable
 from common.language import Language
 
 from common.utils import get_logger
+
 logger = get_logger(__name__)
 
 ################################################################################
@@ -199,7 +200,6 @@ class RNNClassifier(L.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
 
-
 ################################################################################
 
 
@@ -215,9 +215,8 @@ class EncoderDecoder(L.LightningModule):
         output_size: int,
         epochs: int,
         data_length: int,
-        num_layers: int = 1,
-        dropout: float = 0.0,
         max_output_length: int = 20,
+        scheduler: str = "onecycle",
     ):
         super().__init__()
 
@@ -231,11 +230,15 @@ class EncoderDecoder(L.LightningModule):
         self.output_size = output_size
         self.epochs = epochs
         self.data_length = data_length
-        self.num_layers = num_layers
-        self.dropout = dropout
         self.max_output_length = max_output_length
-        
+        self.scheduler = scheduler
+
         self.criterion = torch.nn.NLLLoss()
+
+        assert self.scheduler in ["onecycle", "reduceonplateau"]
+        assert isinstance(self.source_language, Language)
+        assert isinstance(self.target_language, Language)
+        assert callable(self.detokenizer)
 
         # Embedding
         self.input_embedding = torch.nn.Embedding(
@@ -250,8 +253,6 @@ class EncoderDecoder(L.LightningModule):
             self.embedding_size,
             self.hidden_size,
             batch_first=True,
-            num_layers=self.num_layers,
-            dropout=self.dropout,
         )
 
         # Not that we apply a linear transformation to the context vector
@@ -271,12 +272,12 @@ class EncoderDecoder(L.LightningModule):
             self.embedding_size + self.hidden_size,
             self.hidden_size,
             batch_first=True,
-            num_layers=self.num_layers,
-            dropout=self.dropout,
         )
 
         # Dense layer to convert decoder output to vocab size
-        self.dense = torch.nn.Linear(self.hidden_size, self.output_size)
+        self.dense1 = torch.nn.Linear(self.hidden_size, self.embedding_size)
+
+        self.dense2 = torch.nn.Linear(self.embedding_size, self.output_size)
 
         self.log_softmax = torch.nn.LogSoftmax(dim=-1)
 
@@ -341,15 +342,18 @@ class EncoderDecoder(L.LightningModule):
 
         # decoder_output is (batch_size, seq_len-1, hidden_size)
         # Add a dense layer to convert it to the decoder_output vocab size
-        decoder_output = self.dense(decoder_output)
-        # decoder_output: (batch_size, seq_len-1, decoder_output_size)
+        decoder_output = self.dense1(decoder_output)
+        # decoder_output: (batch_size, seq_len-1, embedding_size)
+
+        decoder_output = self.dense2(decoder_output)
+        # decoder_output: (batch_size, seq_len-1, output_size)
 
         # Now log softmax the decoder_output along last dimension
         decoder_output = self.log_softmax(decoder_output)
         # output: (batch_size, seq_len-1, output_size)
 
         return decoder_output, decoder_state
-    
+
     def _model_step(self, batch):
         """
         Generic step for training, validation, and testing.
@@ -358,7 +362,7 @@ class EncoderDecoder(L.LightningModule):
         x, y, name, country = batch
 
         # First thing we need to do is transform our target tensor. We need two
-        # versions of it: 
+        # versions of it:
         # - One that has the <EOS> token removed; this is the input to the
         #   decoder.
         # - One that has the <SOS> token removed; this is the teacher-forced
@@ -371,7 +375,9 @@ class EncoderDecoder(L.LightningModule):
 
         # Get decoder output. Remember the initial hidden state for the decoder
         # is the context vector.
-        decoder_output, _ = self.decoder_step(decoder_input, context_vector, context_vector)
+        decoder_output, _ = self.decoder_step(
+            decoder_input, context_vector, context_vector
+        )
         # decoder_output: (batch_size, seq_len-1, output_size)
 
         # To use our NLL loss, we need to reshape the output and target
@@ -386,7 +392,6 @@ class EncoderDecoder(L.LightningModule):
         loss = self.criterion(decoder_output, decoder_target)
 
         return loss
-
 
     def training_step(self, batch, batch_idx):
         loss = self._model_step(batch)
@@ -405,28 +410,37 @@ class EncoderDecoder(L.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
 
-        # One cycle learning rate scheduler
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=0.01,
-            steps_per_epoch=self.data_length,
-            epochs=self.epochs,
-        )
+        if self.scheduler == "onecycle":
+            # One cycle learning rate scheduler
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=0.01,
+                steps_per_epoch=self.data_length,
+                epochs=self.epochs,
+            )
 
-        # Reduce on plateau
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        #     optimizer,
-        #     mode="min",
-        #     factor=0.5,
-        #     patience=3,
-        #     verbose=True,
-        # )
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": scheduler,
+            }
 
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": scheduler,
-            "monitor": "validation_loss",
-        }
+        if self.scheduler == "reduceonplateau":
+            # Reduce on plateau
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode="min",
+                factor=0.5,
+                patience=3,
+                verbose=True,
+            )
+
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": scheduler,
+                "monitor": "validation_loss",
+            }
+
+        return None
 
     def inference(self, name: str):
         """
